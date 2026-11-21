@@ -168,7 +168,7 @@ jobs:
             }
 
             @Override
-            protected void onPause() {
+            public void onPause() {
               // leaving the app (home / recent apps): hide the content from the preview
               getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
               super.onPause();
