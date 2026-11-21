@@ -147,6 +147,56 @@ jobs:
               Image.new("RGB", (w, h), (0, 0, 0)).save(f)
           PY
 
+      - name: Hide app preview in recent-apps screen
+        run: |
+          F=$(find android/app/src/main/java -name MainActivity.java | head -1)
+          cat > "$F" <<'JAVA'
+          package com.privatecalc.app;
+
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.view.WindowManager;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              if (Build.VERSION.SDK_INT >= 33) {
+                setRecentsScreenshotEnabled(false);
+              }
+            }
+
+            @Override
+            protected void onPause() {
+              // leaving the app (home / recent apps): hide the content from the preview
+              getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
+              super.onPause();
+            }
+
+            @Override
+            public void onResume() {
+              super.onResume();
+              // back in the app: allow screenshots again
+              getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+          }
+          JAVA
+          cat "$F"
+
+      - name: Signing key (keeps future updates installable over the old app)
+        run: |
+          mkdir -p ~/.android signing
+          if [ ! -f signing/debug.keystore ]; then
+            keytool -genkeypair -keystore signing/debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add signing/debug.keystore
+            git commit -m "Add app signing key"
+            git push
+          fi
+          cp signing/debug.keystore ~/.android/debug.keystore
+
       - name: Build the APK
         run: |
           npx cap sync android
